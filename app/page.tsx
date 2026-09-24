@@ -9,7 +9,11 @@ export default async function Home() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // Temporary public access: while PUBLIC_MODE is "true" in Vercel's
+  // environment variables, visitors without a session are let in as guests
+  // instead of being redirected to /login. Set PUBLIC_MODE back to "false"
+  // (or remove it) to require sign-in again.
+  if (!user && process.env.PUBLIC_MODE !== "true") redirect("/login");
 
   return (
     <>
