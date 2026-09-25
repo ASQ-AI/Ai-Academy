@@ -8,6 +8,11 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
 
+  const [devEmail, setDevEmail] = useState("");
+  const [devPassword, setDevPassword] = useState("");
+  const [devStatus, setDevStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [devMessage, setDevMessage] = useState("");
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setStatus("sending");
@@ -30,6 +35,32 @@ export default function LoginPage() {
     }
   }
 
+  /**
+   * Password sign-in — a faster path for repeated logins during development,
+   * so you don't have to wait for a magic-link email every time. Requires a
+   * password to already be set for the account (see the SQL script). Safe to
+   * leave in place after development: it's a normal Supabase auth method,
+   * not a bypass, and only works for an account that has a password set.
+   */
+  async function handleDevSubmit(e: FormEvent) {
+    e.preventDefault();
+    setDevStatus("sending");
+    setDevMessage("");
+
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: devEmail,
+      password: devPassword,
+    });
+
+    if (error) {
+      setDevStatus("error");
+      setDevMessage(error.message);
+    } else {
+      window.location.href = "/";
+    }
+  }
+
   return (
     <main
       dir="rtl"
@@ -43,8 +74,7 @@ export default function LoginPage() {
         padding: 20,
       }}
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
         style={{
           background: "#fff",
           border: "1px solid #e6edf1",
@@ -80,47 +110,49 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <label
-          htmlFor="email"
-          style={{ display: "block", fontWeight: 700, marginBottom: 8, color: "#344f60", fontSize: 14 }}
-        >
-          البريد الإلكتروني للعمل
-        </label>
-        <input
-          id="email"
-          required
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@opentech.ae"
-          style={{
-            width: "100%",
-            border: "1px solid #cfdee5",
-            borderRadius: 9,
-            padding: 12,
-            marginBottom: 16,
-            fontSize: 15,
-            fontFamily: "inherit",
-          }}
-        />
-        <button
-          type="submit"
-          disabled={status === "sending"}
-          style={{
-            width: "100%",
-            border: 0,
-            borderRadius: 10,
-            padding: "13px 18px",
-            fontWeight: 800,
-            background: "#53cfbd",
-            color: "#0b3240",
-            fontSize: 15,
-            cursor: status === "sending" ? "not-allowed" : "pointer",
-            opacity: status === "sending" ? 0.7 : 1,
-          }}
-        >
-          {status === "sending" ? "جارٍ الإرسال…" : "إرسال رابط الدخول"}
-        </button>
+        <form onSubmit={handleSubmit}>
+          <label
+            htmlFor="email"
+            style={{ display: "block", fontWeight: 700, marginBottom: 8, color: "#344f60", fontSize: 14 }}
+          >
+            البريد الإلكتروني للعمل
+          </label>
+          <input
+            id="email"
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@opentech.ae"
+            style={{
+              width: "100%",
+              border: "1px solid #cfdee5",
+              borderRadius: 9,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: 15,
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={status === "sending"}
+            style={{
+              width: "100%",
+              border: 0,
+              borderRadius: 10,
+              padding: "13px 18px",
+              fontWeight: 800,
+              background: "#53cfbd",
+              color: "#0b3240",
+              fontSize: 15,
+              cursor: status === "sending" ? "not-allowed" : "pointer",
+              opacity: status === "sending" ? 0.7 : 1,
+            }}
+          >
+            {status === "sending" ? "جارٍ الإرسال…" : "إرسال رابط الدخول"}
+          </button>
+        </form>
 
         {message && (
           <p
@@ -134,7 +166,92 @@ export default function LoginPage() {
             {message}
           </p>
         )}
-      </form>
+
+        <div
+          style={{
+            margin: "22px 0 16px",
+            borderTop: "1px solid #e6edf1",
+            paddingTop: 16,
+          }}
+        >
+          <small style={{ display: "block", color: "#8398a8", marginBottom: 12 }}>
+            دخول سريع بكلمة المرور (لمرحلة التطوير فقط)
+          </small>
+
+          <form onSubmit={handleDevSubmit}>
+            <label
+              htmlFor="devEmail"
+              style={{ display: "block", fontWeight: 700, marginBottom: 8, color: "#344f60", fontSize: 14 }}
+            >
+              البريد الإلكتروني
+            </label>
+            <input
+              id="devEmail"
+              required
+              type="email"
+              value={devEmail}
+              onChange={(e) => setDevEmail(e.target.value)}
+              placeholder="name@opentech.ae"
+              style={{
+                width: "100%",
+                border: "1px solid #cfdee5",
+                borderRadius: 9,
+                padding: 12,
+                marginBottom: 12,
+                fontSize: 15,
+                fontFamily: "inherit",
+              }}
+            />
+            <label
+              htmlFor="devPassword"
+              style={{ display: "block", fontWeight: 700, marginBottom: 8, color: "#344f60", fontSize: 14 }}
+            >
+              كلمة المرور
+            </label>
+            <input
+              id="devPassword"
+              required
+              type="password"
+              value={devPassword}
+              onChange={(e) => setDevPassword(e.target.value)}
+              placeholder="••••••••"
+              style={{
+                width: "100%",
+                border: "1px solid #cfdee5",
+                borderRadius: 9,
+                padding: 12,
+                marginBottom: 14,
+                fontSize: 15,
+                fontFamily: "inherit",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={devStatus === "sending"}
+              style={{
+                width: "100%",
+                border: "1px solid #dbe5e9",
+                borderRadius: 10,
+                padding: "13px 18px",
+                fontWeight: 800,
+                background: "#fff",
+                color: "#19516a",
+                fontSize: 15,
+                cursor: devStatus === "sending" ? "not-allowed" : "pointer",
+                opacity: devStatus === "sending" ? 0.7 : 1,
+              }}
+            >
+              {devStatus === "sending" ? "جارٍ الدخول…" : "دخول سريع"}
+            </button>
+          </form>
+
+          {devMessage && (
+            <p style={{ marginTop: 12, color: "#935427", fontSize: 14, lineHeight: 1.6 }}>
+              {devMessage}
+            </p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
