@@ -4,6 +4,8 @@
 
 Next.js (App Router) + Supabase (قاعدة بيانات Postgres وتسجيل الدخول عبر رابط سحري بالبريد الإلكتروني). جاهزة للنشر على Vercel.
 
+تتضمن المنصة أيضًا ميزات مدعومة بوكلاء Claude (Anthropic) يعمل بعضها بعد بعض ضمن مسار واحد: مدرب ذكي يقيّم طلبك ثم يعيد صياغته ثم يوصي بدرس مناسب، مساعد "اسأل عن الدرس" يجيب من محتوى الدرس نفسه فقط، مخطط تعلّم يجمع أربعة وكلاء (موجّه، مخطِّط، ناقد، مجمّع نهائي) لبناء خطة تعلّم مرئية خطوة بخطوة، وفريق إنتاج محتوى للإدارة (بحث، كتابة، مراجعة) يولّد مسودة درس كاملة تحتاج مراجعة بشرية قبل الحفظ.
+
 ## 1) إعداد Supabase
 
 1. أنشئ مشروعًا جديدًا على [supabase.com](https://supabase.com).
@@ -40,6 +42,7 @@ git push -u origin main
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key (سرّي) |
    | `ADMIN_EMAIL` | `asq-ai@opentech.ae` (أو أي بريد تريده مسؤولًا) |
    | `NEXT_PUBLIC_SITE_URL` | رابط موقعك النهائي على Vercel |
+   | `ANTHROPIC_API_KEY` | مفتاح Anthropic لميزات الوكلاء الذكية (يُنشأ من [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)) |
 
 3. اضغط Deploy. بعد اكتمال النشر، ارجع لخطوة Supabase (البند 4 أعلاه) وتأكد أن `Site URL` و`Redirect URLs` تطابقان الرابط النهائي فعليًا.
 
@@ -59,8 +62,11 @@ app/
     progress/route.ts    تصحيح الإجابة وحفظ إكمال الدرس
     admin/course/route.ts   إنشاء مسار ونشره/إخفاؤه (للإدارة فقط)
     admin/lesson/route.ts   إضافة درس (للإدارة فقط)
+    admin/agent-draft/route.ts  فريق إنتاج المحتوى بالذكاء الاصطناعي (بحث ثم كتابة ثم مراجعة، للإدارة فقط، لا يكتب في القاعدة)
+    agent/route.ts          نقطة نهاية موحّدة لوكلاء الذكاء الاصطناعي: المدرب الذكي، اسأل عن الدرس، مخطط التعلم بالوكلاء
 lib/
   academy.ts             منطق الهوية والصلاحيات وجلب المسارات
+  agents/claude.ts        عميل خفيف لاستدعاء Anthropic Messages API مباشرة (بدون حزمة SDK)
   supabase/*.ts          عملاء Supabase (خادم، متصفح، خدمة، وسيط الجلسة)
 public/
   app.js, style.css      واجهة المستخدم (تطبيق صفحة واحدة بالجافاسكربت)
