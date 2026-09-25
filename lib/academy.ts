@@ -18,22 +18,7 @@ export async function identity(): Promise<Identity | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user || !user.email) {
-    // Temporary public access: while PUBLIC_MODE is "true", anyone visiting
-    // without a session is treated as a read-only guest instead of being
-    // blocked. Set PUBLIC_MODE back to "false" (or remove it) in Vercel to
-    // require real sign-in again — no code changes needed.
-    if (process.env.PUBLIC_MODE === "true") {
-      return {
-        userId: "00000000-0000-0000-0000-000000000000",
-        email: "guest@ai-academy.local",
-        displayName: "زائر",
-        isAdmin: false,
-      };
-    }
-    return null;
-  }
+  if (!user || !user.email) return null;
 
   const email = user.email.trim().toLowerCase();
   const meta = (user.user_metadata || {}) as Record<string, unknown>;
@@ -101,6 +86,7 @@ type LessonRow = {
   options: string[];
   answer: number;
   reason: string | null;
+  source: string | null;
 };
 
 type CourseRow = {
@@ -147,6 +133,7 @@ export async function coursesFor(admin: boolean) {
         options: l.options,
         answer: l.answer,
         reason: l.reason || "",
+        source: l.source || "",
       })),
     };
   });
