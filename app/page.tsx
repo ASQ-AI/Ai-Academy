@@ -37,6 +37,9 @@ export default async function Home() {
             <button className="nav" data-view="planner">
               <span>◈</span> مخطط الوكلاء
             </button>
+            <button className="nav" data-view="assessment">
+              <span>◎</span> تقييم تحديد المستوى
+            </button>
             <button className="nav" data-view="progress">
               <span>◷</span> تقدمي وإنجازاتي
             </button>
