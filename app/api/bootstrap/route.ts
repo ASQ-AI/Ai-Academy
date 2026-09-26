@@ -8,10 +8,12 @@ export async function GET() {
     const user = await identity();
     if (!user) return denied();
 
-    await upsertPerson(user.userId, user.email, user.displayName);
-
     const db = createSupabaseServiceClient();
-    const [{ data: progressRows }, { data: personRow }, tracks] = await Promise.all([
+    // Run the sign-in bookkeeping write in parallel with the reads below
+    // instead of waiting for it first — it doesn't touch level/level_score,
+    // so no read here depends on it having landed yet.
+    const [, { data: progressRows }, { data: personRow }, tracks] = await Promise.all([
+      upsertPerson(user.userId, user.email, user.displayName),
       db.from("progress").select("lesson_id").eq("user_id", user.userId),
       db.from("people").select("level, level_score, assessed_at").eq("id", user.userId).maybeSingle(),
       coursesFor(user.isAdmin),
