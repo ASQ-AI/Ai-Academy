@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import Script from "next/script";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSettings } from "@/lib/academy";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [{ data: { user } }, settings] = await Promise.all([
+    supabase.auth.getUser(),
+    getSettings(),
+  ]);
   if (!user) redirect("/login");
 
   return (
@@ -20,31 +22,31 @@ export default async function Home() {
               A<span>✦</span>
             </span>
             <div>
-              <strong>أكاديمية AI</strong>
+              <strong>{settings.siteName}</strong>
               <small>مساحة التعلم الذكية</small>
             </div>
           </div>
           <nav aria-label="التنقل الرئيسي">
             <button className="nav active" data-view="home">
-              <span>⌂</span> الرئيسية
+              <span>⌂</span> {settings.navHome}
             </button>
             <button className="nav" data-view="tracks">
-              <span>▦</span> المسارات التعليمية
+              <span>▦</span> {settings.navTracks}
             </button>
             <button className="nav" data-view="coach">
-              <span>✧</span> المدرب الشخصي
+              <span>✧</span> {settings.navCoach}
             </button>
             <button className="nav" data-view="planner">
-              <span>◈</span> مخطط الوكلاء
+              <span>◈</span> {settings.navPlanner}
             </button>
             <button className="nav" data-view="assessment">
-              <span>◎</span> تقييم تحديد المستوى
+              <span>◎</span> {settings.navAssessment}
             </button>
             <button className="nav" data-view="progress">
-              <span>◷</span> تقدمي وإنجازاتي
+              <span>◷</span> {settings.navProgress}
             </button>
             <button className="nav" data-view="admin" hidden>
-              <span>⚙</span> إدارة الأكاديمية
+              <span>⚙</span> {settings.navAdmin}
             </button>
           </nav>
           <div className="side-bottom">
@@ -61,7 +63,7 @@ export default async function Home() {
             <button id="menuBtn" className="menu-btn" aria-label="فتح القائمة" aria-expanded="false">
               ☰
             </button>
-            <span className="top-title">أكاديمية AI</span>
+            <span className="top-title">{settings.siteName}</span>
             <div className="top-actions">
               <span className="date" id="date"></span>
               <span className="account-name" id="accountName"></span>
