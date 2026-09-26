@@ -86,7 +86,7 @@ type LessonRow = {
   options: string[];
   answer: number;
   reason: string | null;
-  source: string | null;
+  diagram: string | null;
 };
 
 type CourseRow = {
@@ -133,7 +133,7 @@ export async function coursesFor(admin: boolean) {
         options: l.options,
         answer: l.answer,
         reason: l.reason || "",
-        source: l.source || "",
+        diagram: l.diagram || "",
       })),
     };
   });
