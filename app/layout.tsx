@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getSettings } from "@/lib/academy";
 
-export const metadata: Metadata = {
-  title: "أكاديمية AI | التعلم المؤسسي",
-  description: "أكاديمية تفاعلية لإدارة المسارات التعليمية ومتابعة تقدم المتعلمين",
-  icons: { icon: "/favicon.svg" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  return {
+    title: `${settings.siteName} | التعلم المؤسسي`,
+    description: "أكاديمية تفاعلية لإدارة المسارات التعليمية ومتابعة تقدم المتعلمين",
+    icons: { icon: "/favicon.svg" },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
