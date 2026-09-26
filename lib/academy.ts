@@ -69,6 +69,106 @@ export async function upsertPerson(userId: string, email: string, name: string) 
   await db.from("people").upsert({ id: userId, email, name }, { onConflict: "id" });
 }
 
+export type PlatformSettings = {
+  siteName: string;
+  navHome: string;
+  navTracks: string;
+  navCoach: string;
+  navPlanner: string;
+  navAssessment: string;
+  navProgress: string;
+  navAdmin: string;
+};
+
+const DEFAULT_SETTINGS: PlatformSettings = {
+  siteName: "أكاديمية AI",
+  navHome: "الرئيسية",
+  navTracks: "المسارات التعليمية",
+  navCoach: "المدرب الشخصي",
+  navPlanner: "مخطط الوكلاء",
+  navAssessment: "تقييم تحديد المستوى",
+  navProgress: "تقدمي وإنجازاتي",
+  navAdmin: "إدارة الأكاديمية",
+};
+
+type SettingsRow = {
+  site_name: string | null;
+  nav_home: string | null;
+  nav_tracks: string | null;
+  nav_coach: string | null;
+  nav_planner: string | null;
+  nav_assessment: string | null;
+  nav_progress: string | null;
+  nav_admin: string | null;
+};
+
+/**
+ * The platform's display name and sidebar menu labels, editable from Academy
+ * Management. Falls back to the original defaults if the settings table
+ * hasn't been created yet (migration not applied) or has no row yet, so
+ * nothing breaks before that SQL is run.
+ */
+export async function getSettings(): Promise<PlatformSettings> {
+  try {
+    const db = createSupabaseServiceClient();
+    const { data } = await db
+      .from("settings")
+      .select("*")
+      .eq("id", "main")
+      .maybeSingle();
+    const row = data as SettingsRow | null;
+    if (!row) return DEFAULT_SETTINGS;
+    return {
+      siteName: row.site_name || DEFAULT_SETTINGS.siteName,
+      navHome: row.nav_home || DEFAULT_SETTINGS.navHome,
+      navTracks: row.nav_tracks || DEFAULT_SETTINGS.navTracks,
+      navCoach: row.nav_coach || DEFAULT_SETTINGS.navCoach,
+      navPlanner: row.nav_planner || DEFAULT_SETTINGS.navPlanner,
+      navAssessment: row.nav_assessment || DEFAULT_SETTINGS.navAssessment,
+      navProgress: row.nav_progress || DEFAULT_SETTINGS.navProgress,
+      navAdmin: row.nav_admin || DEFAULT_SETTINGS.navAdmin,
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+/** Trim to a safe length and fall back to the default when left blank. */
+function cleanLabel(value: unknown, fallback: string, max = 60): string {
+  const s = typeof value === "string" ? value.trim() : "";
+  if (!s) return fallback;
+  return s.slice(0, max);
+}
+
+export async function updateSettings(input: Record<string, unknown>): Promise<PlatformSettings> {
+  const next: PlatformSettings = {
+    siteName: cleanLabel(input.siteName, DEFAULT_SETTINGS.siteName, 60),
+    navHome: cleanLabel(input.navHome, DEFAULT_SETTINGS.navHome, 40),
+    navTracks: cleanLabel(input.navTracks, DEFAULT_SETTINGS.navTracks, 40),
+    navCoach: cleanLabel(input.navCoach, DEFAULT_SETTINGS.navCoach, 40),
+    navPlanner: cleanLabel(input.navPlanner, DEFAULT_SETTINGS.navPlanner, 40),
+    navAssessment: cleanLabel(input.navAssessment, DEFAULT_SETTINGS.navAssessment, 40),
+    navProgress: cleanLabel(input.navProgress, DEFAULT_SETTINGS.navProgress, 40),
+    navAdmin: cleanLabel(input.navAdmin, DEFAULT_SETTINGS.navAdmin, 40),
+  };
+  const db = createSupabaseServiceClient();
+  await db.from("settings").upsert(
+    {
+      id: "main",
+      site_name: next.siteName,
+      nav_home: next.navHome,
+      nav_tracks: next.navTracks,
+      nav_coach: next.navCoach,
+      nav_planner: next.navPlanner,
+      nav_assessment: next.navAssessment,
+      nav_progress: next.navProgress,
+      nav_admin: next.navAdmin,
+    },
+    { onConflict: "id" },
+  );
+  return next;
+}
+
 type LessonRow = {
   id: string;
   course_id: string;
