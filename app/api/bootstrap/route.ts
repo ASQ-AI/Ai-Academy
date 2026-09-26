@@ -11,13 +11,21 @@ export async function GET() {
     await upsertPerson(user.userId, user.email, user.displayName);
 
     const db = createSupabaseServiceClient();
-    const [{ data: progressRows }, tracks] = await Promise.all([
+    const [{ data: progressRows }, { data: personRow }, tracks] = await Promise.all([
       db.from("progress").select("lesson_id").eq("user_id", user.userId),
+      db.from("people").select("level, level_score, assessed_at").eq("id", user.userId).maybeSingle(),
       coursesFor(user.isAdmin),
     ]);
 
     const result: Record<string, unknown> = {
-      user: { name: user.displayName, email: user.email, isAdmin: user.isAdmin },
+      user: {
+        name: user.displayName,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        level: (personRow as { level: string | null } | null)?.level || null,
+        levelScore: (personRow as { level_score: number | null } | null)?.level_score ?? null,
+        assessedAt: (personRow as { assessed_at: string | null } | null)?.assessed_at || null,
+      },
       tracks,
       completed: (progressRows || []).map((r) => r.lesson_id as string),
     };
