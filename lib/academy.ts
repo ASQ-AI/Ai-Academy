@@ -57,20 +57,16 @@ export function fail(e: unknown) {
   );
 }
 
-/** Keep the people table in sync with who just signed in, without touching joined_at again. */
+/**
+ * Keep the people table in sync with who just signed in, without touching
+ * joined_at again. A single upsert (one round trip instead of a select then
+ * an update/insert) — on conflict it only overwrites email/name, so an
+ * existing row's joined_at (and level/level_score/assessed_at) are left as-is,
+ * and a brand-new row still gets its joined_at default.
+ */
 export async function upsertPerson(userId: string, email: string, name: string) {
   const db = createSupabaseServiceClient();
-  const { data: existing } = await db
-    .from("people")
-    .select("id")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (existing) {
-    await db.from("people").update({ email, name }).eq("id", userId);
-  } else {
-    await db.from("people").insert({ id: userId, email, name });
-  }
+  await db.from("people").upsert({ id: userId, email, name }, { onConflict: "id" });
 }
 
 type LessonRow = {
