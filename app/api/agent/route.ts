@@ -190,6 +190,118 @@ async function runLessonQna(rawLessonId: unknown, rawQuestion: unknown, isAdmin:
 }
 
 // ---------------------------------------------------------------------------
+// Mode 4: "مساعد تعليمي داخل الدرس" — simplify -> (optional) check-understanding.
+// Both fetch the lesson fresh from Supabase, exactly like runLessonQna, so the
+// AI is always grounded in the real published content rather than trusting
+// anything the client claims about the lesson.
+// ---------------------------------------------------------------------------
+
+type LessonContentRow = {
+  title: string;
+  lead: string;
+  points: string[];
+  example: string;
+  course_id: string;
+};
+
+async function loadPublishedLesson(lessonId: string, isAdmin: boolean) {
+  const db = createSupabaseServiceClient();
+  const { data: lesson } = await db
+    .from("lessons")
+    .select("title, lead, points, example, course_id, courses(published)")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  const courseInfo =
+    (lesson as unknown as { courses: { published: boolean } | null }) || null;
+  const published = courseInfo?.courses?.published;
+  if (!lesson || (!published && !isAdmin)) return null;
+  return lesson as unknown as LessonContentRow;
+}
+
+function lessonContentBlock(lesson: LessonContentRow) {
+  return (
+    `العنوان: ${lesson.title}\n` +
+    `الشرح: ${lesson.lead}\n` +
+    `النقاط التعليمية:\n${(lesson.points || []).map((p: string) => `- ${p}`).join("\n")}\n` +
+    `المثال التطبيقي: ${lesson.example}`
+  );
+}
+
+async function runSimplify(rawLessonId: unknown, isAdmin: boolean) {
+  const lessonId = str(rawLessonId, 200);
+  if (!lessonId) {
+    return Response.json({ error: "الدرس غير محدد." }, { status: 400 });
+  }
+
+  const lesson = await loadPublishedLesson(lessonId, isAdmin);
+  if (!lesson) {
+    return Response.json({ error: "الدرس غير متاح" }, { status: 404 });
+  }
+
+  const raw = await callClaude({
+    model: SONNET,
+    maxTokens: 700,
+    system:
+      "أنت معلّم داخل أكاديمية تدريب داخلي متخصص في تبسيط المفاهيم. بناءً على محتوى الدرس المُعطى فقط: " +
+      "1) اشرح الفكرة الأساسية بلغة أبسط بكثير وبجمل قصيرة، كأنك تشرحها لشخص يسمع عنها لأول مرة. " +
+      "2) أعط مثالًا تطبيقيًا إضافيًا مختلفًا عن المثال الأصلي في الدرس ومرتبطًا ببيئة عمل مكتبية. " +
+      "3) صغ سؤالًا قصيرًا واحدًا مفتوحًا (وليس اختيار من متعدد) يتحقق من فهم المتعلم للفكرة الأساسية. " +
+      'أعد فقط JSON خام دون أي شرح إضافي ودون علامات ```، بالضبط بهذا الشكل: ' +
+      '{"explanation": "الشرح المبسّط بالعربية", "example": "المثال الإضافي بالعربية", "checkQuestion": "سؤال التحقق بالعربية"}.',
+    prompt: `محتوى الدرس:\n${lessonContentBlock(lesson)}`,
+  });
+  const parsed = parseClaudeJson<{
+    explanation?: string;
+    example?: string;
+    checkQuestion?: string;
+  }>(raw);
+  const explanation = str(parsed.explanation, 1500) || "تعذر توليد شرح مبسّط الآن، حاول مرة أخرى.";
+  const example = str(parsed.example, 800);
+  const checkQuestion = str(parsed.checkQuestion, 300);
+
+  return Response.json({ explanation, example, checkQuestion });
+}
+
+async function runSimplifyCheck(
+  rawLessonId: unknown,
+  rawQuestion: unknown,
+  rawAnswer: unknown,
+  isAdmin: boolean,
+) {
+  const lessonId = str(rawLessonId, 200);
+  const question = str(rawQuestion, 300);
+  const answer = str(rawAnswer, 1000);
+  if (!lessonId || !question || !answer) {
+    return Response.json({ error: "اكتب إجابتك أولًا." }, { status: 400 });
+  }
+
+  const lesson = await loadPublishedLesson(lessonId, isAdmin);
+  if (!lesson) {
+    return Response.json({ error: "الدرس غير متاح" }, { status: 404 });
+  }
+
+  const raw = await callClaude({
+    model: SONNET,
+    maxTokens: 400,
+    system:
+      "أنت معلّم متعاون. أمامك محتوى درس، وسؤال تحقق من الفهم، وإجابة المتعلم عليه. " +
+      "قيّم هل الإجابة تدل على فهم صحيح للفكرة الأساسية (لا تشترط الحرفية، اقبل الصياغات المختلفة الصحيحة)، " +
+      "ثم اكتب ملاحظة قصيرة داعمة بالعربية: إن كانت الإجابة صحيحة أو قريبة اشرح لماذا هي صحيحة مع تشجيع، " +
+      "وإن كانت غير دقيقة صحّح الفهم الخاطئ بلطف ووضوح دون تحقير. " +
+      'أعد فقط JSON خام: {"understood": true أو false, "feedback": "الملاحظة بالعربية"}.',
+    prompt:
+      `محتوى الدرس:\n${lessonContentBlock(lesson)}\n\n` +
+      `سؤال التحقق:\n${question}\n\nإجابة المتعلم:\n${answer}`,
+  });
+  const parsed = parseClaudeJson<{ understood?: boolean; feedback?: string }>(raw);
+  const understood = parsed.understood === true;
+  const feedback = str(parsed.feedback, 800) || "شكرًا على إجابتك.";
+
+  return Response.json({ understood, feedback });
+}
+
+// ---------------------------------------------------------------------------
 // Mode 3: "مخطط التعلم بالوكلاء" — router -> planner -> critic -> finalizer.
 // ---------------------------------------------------------------------------
 
@@ -319,6 +431,10 @@ export async function POST(req: Request) {
         return await runLessonQna(body.lessonId, body.question, user.isAdmin);
       case "plan":
         return await runPlan(body.goal, body.lessons);
+      case "simplify":
+        return await runSimplify(body.lessonId, user.isAdmin);
+      case "simplify_check":
+        return await runSimplifyCheck(body.lessonId, body.question, body.answer, user.isAdmin);
       default:
         return Response.json({ error: "طلب غير صالح" }, { status: 400 });
     }

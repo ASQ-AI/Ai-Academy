@@ -77,6 +77,8 @@ export type PlatformSettings = {
   navPlanner: string;
   navAssessment: string;
   navProgress: string;
+  navTemplates: string;
+  navSimulation: string;
   navAdmin: string;
 };
 
@@ -88,6 +90,8 @@ const DEFAULT_SETTINGS: PlatformSettings = {
   navPlanner: "مخطط الوكلاء",
   navAssessment: "تقييم تحديد المستوى",
   navProgress: "تقدمي وإنجازاتي",
+  navTemplates: "مكتبة القوالب",
+  navSimulation: "مختبر المحاكاة",
   navAdmin: "إدارة الأكاديمية",
 };
 
@@ -99,6 +103,8 @@ type SettingsRow = {
   nav_planner: string | null;
   nav_assessment: string | null;
   nav_progress: string | null;
+  nav_templates: string | null;
+  nav_simulation: string | null;
   nav_admin: string | null;
 };
 
@@ -126,6 +132,8 @@ export async function getSettings(): Promise<PlatformSettings> {
       navPlanner: row.nav_planner || DEFAULT_SETTINGS.navPlanner,
       navAssessment: row.nav_assessment || DEFAULT_SETTINGS.navAssessment,
       navProgress: row.nav_progress || DEFAULT_SETTINGS.navProgress,
+      navTemplates: row.nav_templates || DEFAULT_SETTINGS.navTemplates,
+      navSimulation: row.nav_simulation || DEFAULT_SETTINGS.navSimulation,
       navAdmin: row.nav_admin || DEFAULT_SETTINGS.navAdmin,
     };
   } catch {
@@ -149,6 +157,8 @@ export async function updateSettings(input: Record<string, unknown>): Promise<Pl
     navPlanner: cleanLabel(input.navPlanner, DEFAULT_SETTINGS.navPlanner, 40),
     navAssessment: cleanLabel(input.navAssessment, DEFAULT_SETTINGS.navAssessment, 40),
     navProgress: cleanLabel(input.navProgress, DEFAULT_SETTINGS.navProgress, 40),
+    navTemplates: cleanLabel(input.navTemplates, DEFAULT_SETTINGS.navTemplates, 40),
+    navSimulation: cleanLabel(input.navSimulation, DEFAULT_SETTINGS.navSimulation, 40),
     navAdmin: cleanLabel(input.navAdmin, DEFAULT_SETTINGS.navAdmin, 40),
   };
   const db = createSupabaseServiceClient();
@@ -162,11 +172,52 @@ export async function updateSettings(input: Record<string, unknown>): Promise<Pl
       nav_planner: next.navPlanner,
       nav_assessment: next.navAssessment,
       nav_progress: next.navProgress,
+      nav_templates: next.navTemplates,
+      nav_simulation: next.navSimulation,
       nav_admin: next.navAdmin,
     },
     { onConflict: "id" },
   );
   return next;
+}
+
+export type TemplateItem = {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+};
+
+type TemplateRow = {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  created_at: string;
+};
+
+/**
+ * The work-templates library, managed entirely by the admin and visible to
+ * every signed-in employee. Falls back to an empty list if the table hasn't
+ * been created yet, so bootstrap never breaks before that SQL is run.
+ */
+export async function templatesFor(): Promise<TemplateItem[]> {
+  try {
+    const db = createSupabaseServiceClient();
+    const { data } = await db
+      .from("templates")
+      .select("*")
+      .order("category", { ascending: true })
+      .order("created_at", { ascending: true });
+    return ((data as TemplateRow[]) || []).map((t) => ({
+      id: t.id,
+      category: t.category,
+      title: t.title,
+      body: t.body,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 type LessonRow = {
