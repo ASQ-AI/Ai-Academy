@@ -241,7 +241,7 @@ async function runSimplify(rawLessonId: unknown, isAdmin: boolean) {
 
   const raw = await callClaude({
     model: SONNET,
-    maxTokens: 700,
+    maxTokens: 2000,
     system:
       "أنت معلّم داخل أكاديمية تدريب داخلي متخصص في تبسيط المفاهيم. بناءً على محتوى الدرس المُعطى فقط: " +
       "1) اشرح الفكرة الأساسية بلغة أبسط بكثير وبجمل قصيرة، كأنك تشرحها لشخص يسمع عنها لأول مرة. " +
@@ -283,7 +283,7 @@ async function runSimplifyCheck(
 
   const raw = await callClaude({
     model: SONNET,
-    maxTokens: 400,
+    maxTokens: 1000,
     system:
       "أنت معلّم متعاون. أمامك محتوى درس، وسؤال تحقق من الفهم، وإجابة المتعلم عليه. " +
       "قيّم هل الإجابة تدل على فهم صحيح للفكرة الأساسية (لا تشترط الحرفية، اقبل الصياغات المختلفة الصحيحة)، " +

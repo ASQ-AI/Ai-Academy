@@ -65,9 +65,10 @@ export async function callClaude({
 }
 
 /**
- * Strips a possible ```json fence around a Claude reply and JSON.parses it.
- * Throws (a plain Error) on malformed JSON — callers rely on their route's
- * outer try/catch + fail() to turn that into a friendly Arabic message.
+ * Parses a Claude reply as JSON. Tolerates a ```json fence and any stray
+ * text before/after the object (e.g. a short preamble), by falling back to
+ * the outermost {...} or [...] span. Throws a plain Error if nothing parses —
+ * callers rely on their route's outer try/catch + fail().
  */
 export function parseClaudeJson<T>(raw: string): T {
   const cleaned = raw
@@ -75,5 +76,14 @@ export function parseClaudeJson<T>(raw: string): T {
     .replace(/^```(?:json)?/i, "")
     .replace(/```$/i, "")
     .trim();
-  return JSON.parse(cleaned) as T;
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    const start = cleaned.search(/[{[]/);
+    const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1)) as T;
+    }
+    throw new Error(`Claude reply was not valid JSON: ${cleaned.slice(0, 200)}`);
+  }
 }
