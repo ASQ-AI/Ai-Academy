@@ -45,6 +45,12 @@ export default async function Home() {
             <button className="nav" data-view="progress">
               <span>◷</span> {settings.navProgress}
             </button>
+            <button className="nav" data-view="templates">
+              <span>▤</span> {settings.navTemplates}
+            </button>
+            <button className="nav" data-view="simulation">
+              <span>◆</span> {settings.navSimulation}
+            </button>
             <button className="nav" data-view="admin" hidden>
               <span>⚙</span> {settings.navAdmin}
             </button>

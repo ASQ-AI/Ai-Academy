@@ -1,4 +1,4 @@
-import { identity, denied, fail, coursesFor, upsertPerson } from "@/lib/academy";
+import { identity, denied, fail, coursesFor, upsertPerson, templatesFor } from "@/lib/academy";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +12,12 @@ export async function GET() {
     // Run the sign-in bookkeeping write in parallel with the reads below
     // instead of waiting for it first — it doesn't touch level/level_score,
     // so no read here depends on it having landed yet.
-    const [, { data: progressRows }, { data: personRow }, tracks] = await Promise.all([
+    const [, { data: progressRows }, { data: personRow }, tracks, templates] = await Promise.all([
       upsertPerson(user.userId, user.email, user.displayName),
       db.from("progress").select("lesson_id").eq("user_id", user.userId),
       db.from("people").select("level, level_score, assessed_at").eq("id", user.userId).maybeSingle(),
       coursesFor(user.isAdmin),
+      templatesFor(),
     ]);
 
     const result: Record<string, unknown> = {
@@ -29,6 +30,7 @@ export async function GET() {
         assessedAt: (personRow as { assessed_at: string | null } | null)?.assessed_at || null,
       },
       tracks,
+      templates,
       completed: (progressRows || []).map((r) => r.lesson_id as string),
     };
 
