@@ -3,6 +3,8 @@ import { callClaude, parseClaudeJson, SONNET } from "@/lib/agents/claude";
 import { publicSimulations, findSimulation } from "@/lib/simulations";
 
 export const dynamic = "force-dynamic";
+// Several Claude calls run in sequence; allow more than the default timeout.
+export const maxDuration = 60;
 
 const str = (x: unknown, max = 3000) =>
   typeof x === "string" ? x.trim().slice(0, max) : "";

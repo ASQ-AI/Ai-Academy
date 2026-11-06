@@ -51,6 +51,10 @@ export function forbidden() {
 
 export function fail(e: unknown) {
   console.error("Academy request failed", e);
+  const userMessage = (e as { userMessage?: unknown } | null)?.userMessage;
+  if (typeof userMessage === "string" && userMessage) {
+    return Response.json({ error: userMessage }, { status: 502 });
+  }
   return Response.json(
     { error: "تعذر إكمال الطلب الآن. حاول مرة أخرى." },
     { status: 500 },

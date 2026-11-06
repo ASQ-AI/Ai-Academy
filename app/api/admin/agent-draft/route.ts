@@ -3,6 +3,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callClaude, parseClaudeJson, SONNET } from "@/lib/agents/claude";
 
 export const dynamic = "force-dynamic";
+// Several Claude calls run in sequence; allow more than the default timeout.
+export const maxDuration = 60;
 
 const AI_SOURCE_LABEL = "مُولَّد بمساعدة الذكاء الاصطناعي — يتطلب مراجعة بشرية";
 
