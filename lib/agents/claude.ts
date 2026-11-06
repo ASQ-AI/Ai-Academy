@@ -48,10 +48,27 @@ export type CallClaudeOptions = {
   prompt: string;
   model?: string;
   maxTokens?: number;
+  /**
+   * Force a structured JSON reply via a tool call. Defaults to true whenever
+   * the system prompt asks for JSON, so every existing caller benefits
+   * without changes.
+   */
+  json?: boolean;
 };
 
-type AnthropicContentBlock = { type: string; text?: string };
-type AnthropicMessageResponse = { content?: AnthropicContentBlock[] };
+type AnthropicContentBlock = { type: string; text?: string; input?: unknown };
+type AnthropicMessageResponse = { content?: AnthropicContentBlock[]; stop_reason?: string };
+
+/**
+ * When JSON is wanted, the model answers through this forced tool instead of
+ * free text. The API then returns an already-parsed object, so Arabic text
+ * containing quotation marks can never break JSON.parse again.
+ */
+const JSON_TOOL = {
+  name: "submit_answer",
+  description: "Submit the final answer as a JSON object with exactly the fields the instructions ask for.",
+  input_schema: { type: "object", additionalProperties: true },
+};
 
 /**
  * Calls one Claude agent and returns its raw text reply. Throws on a
@@ -63,7 +80,9 @@ export async function callClaude({
   prompt,
   model = SONNET,
   maxTokens = 1024,
+  json,
 }: CallClaudeOptions): Promise<string> {
+  const wantsJson = json ?? /JSON/.test(system);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey)
     throw new ClaudeApiError(
@@ -80,9 +99,13 @@ export async function callClaude({
     },
     body: JSON.stringify({
       model,
-      max_tokens: maxTokens,
+      // Arabic is token-heavy; give structured replies room so they are never cut off.
+      max_tokens: wantsJson ? Math.max(maxTokens, 1500) : maxTokens,
       system,
       messages: [{ role: "user", content: prompt }],
+      ...(wantsJson
+        ? { tools: [JSON_TOOL], tool_choice: { type: "tool", name: JSON_TOOL.name } }
+        : {}),
     }),
   });
 
@@ -95,6 +118,15 @@ export async function callClaude({
   }
 
   const data = (await response.json()) as AnthropicMessageResponse;
+
+  if (wantsJson) {
+    const tool = (data.content || []).find((c) => c.type === "tool_use");
+    if (tool && tool.input && typeof tool.input === "object") {
+      return JSON.stringify(tool.input);
+    }
+    // Fall through to the text block below if no tool call came back.
+  }
+
   const block = (data.content || []).find(
     (c) => c.type === "text" && typeof c.text === "string",
   );
