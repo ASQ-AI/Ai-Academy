@@ -11,6 +11,38 @@ export const SONNET = "claude-sonnet-5";
 /** claude-haiku-4-5 for cheap, fast classification/routing calls. */
 export const HAIKU = "claude-haiku-4-5-20251001";
 
+/**
+ * An Anthropic API failure carrying a safe Arabic explanation for the UI.
+ * fail() in lib/academy.ts shows userMessage instead of the generic error,
+ * so a misconfigured key or an empty balance is visible immediately rather
+ * than hiding behind "تعذر إكمال الطلب الآن".
+ */
+export class ClaudeApiError extends Error {
+  userMessage: string;
+  constructor(message: string, userMessage: string) {
+    super(message);
+    this.name = "ClaudeApiError";
+    this.userMessage = userMessage;
+  }
+}
+
+function explainStatus(status: number, body: string): string {
+  const b = body.toLowerCase();
+  if (status === 401)
+    return "مفتاح Anthropic API غير صالح. تحقق من قيمة ANTHROPIC_API_KEY في إعدادات Vercel ثم أعد النشر.";
+  if (b.includes("credit") || b.includes("billing") || b.includes("balance"))
+    return "رصيد حساب Anthropic API غير كافٍ. أضف رصيدًا من console.anthropic.com ثم أعد المحاولة.";
+  if (status === 403)
+    return "مفتاح Anthropic API لا يملك صلاحية استخدام هذا النموذج.";
+  if (status === 404 || b.includes("model"))
+    return "نموذج الذكاء الاصطناعي المحدد غير متاح لهذا الحساب.";
+  if (status === 429)
+    return "تم تجاوز حد الطلبات أو حد الإنفاق في حساب Anthropic. انتظر قليلًا ثم أعد المحاولة.";
+  if (status === 529 || status >= 500)
+    return "خدمة Claude مشغولة حاليًا. أعد المحاولة بعد دقيقة.";
+  return "تعذر الاتصال بخدمة الذكاء الاصطناعي الآن.";
+}
+
 export type CallClaudeOptions = {
   system: string;
   prompt: string;
@@ -33,7 +65,11 @@ export async function callClaude({
   maxTokens = 1024,
 }: CallClaudeOptions): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY غير مُعرَّف على الخادم");
+  if (!apiKey)
+    throw new ClaudeApiError(
+      "ANTHROPIC_API_KEY is not set",
+      "مفتاح ANTHROPIC_API_KEY غير مضاف في إعدادات Vercel (Environment Variables). أضفه ثم أعد النشر.",
+    );
 
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -52,7 +88,10 @@ export async function callClaude({
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`Anthropic API error ${response.status}: ${text.slice(0, 500)}`);
+    throw new ClaudeApiError(
+      `Anthropic API error ${response.status}: ${text.slice(0, 500)}`,
+      explainStatus(response.status, text),
+    );
   }
 
   const data = (await response.json()) as AnthropicMessageResponse;
